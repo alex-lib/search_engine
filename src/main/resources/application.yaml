@@ -1,0 +1,29 @@
+# example values
+
+indexing-settings:
+  sites:
+    - url: https://volochek.life/
+      name: Volochek.life
+    - url: https://www.svetlovka.ru/
+      name: Svetlovka.ru
+    - url: https://www.playback.ru/
+      name: PlayBack.ru
+
+server:
+  port: 8080
+spring:
+  datasource:
+    username: root
+    password: 3101
+    url: jdbc:mysql://localhost:3306/search_engine?useSSL=false&requireSSL=false&allowPublicKeyRetrieval=true
+  jpa:
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.MySQL8Dialect
+    hibernate:
+      ddl-auto: create-drop
+    show-sql: false
+
+visit-settings:
+  userAgent: SearchableSearchBot
+  referrer: http://www.google.com
