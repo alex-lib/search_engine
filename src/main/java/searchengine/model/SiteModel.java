@@ -18,7 +18,7 @@ public class SiteModel {
     private Integer id;
     @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, columnDefinition = "ENUM('INDEXED', 'FAILED', 'INDEXING')")
-    private Status status;
+    private SiteStatus siteStatus;
     @Column(name = "status_time", nullable = false, columnDefinition = "DATETIME")
     private LocalDateTime statusTime;
     @Column(name = "last_error", columnDefinition = "TEXT")

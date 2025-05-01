@@ -6,7 +6,7 @@ import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
 import searchengine.model.PageModel;
 import searchengine.model.SiteModel;
-import searchengine.model.Status;
+import searchengine.model.SiteStatus;
 import searchengine.repositories.PageModelRepository;
 import searchengine.repositories.SiteModelRepository;
 import java.io.IOException;
@@ -20,7 +20,7 @@ import java.util.concurrent.RecursiveTask;
 
 @RequiredArgsConstructor
 @Slf4j
-public class SavePagesPool extends RecursiveTask<Void> {
+public class SavePagePool extends RecursiveTask<Void> {
     private final SiteModel siteModel;
     private final String url;
     private final SiteModelRepository siteModelRepository;
@@ -47,7 +47,7 @@ public class SavePagesPool extends RecursiveTask<Void> {
                     .ignoreHttpErrors(true)
                     .get();
 
-            List<SavePagesPool> taskList = new ArrayList<>();
+            List<SavePagePool> taskList = new ArrayList<>();
 
             for (Element element : document.select("a[href]")) {
                 String childUrl = element.absUrl("href");
@@ -60,7 +60,7 @@ public class SavePagesPool extends RecursiveTask<Void> {
                 }
 
                 if (isValidUrl(childUrl) && !pageModelRepository.existsBySiteAndPath(siteModel, relativePath)) {
-                    SavePagesPool task = new SavePagesPool(
+                    SavePagePool task = new SavePagePool(
                             siteModel,
                             childUrl,
                             siteModelRepository,
@@ -77,7 +77,7 @@ public class SavePagesPool extends RecursiveTask<Void> {
                     siteModelRepository.save(siteModel);
                 }
             }
-            taskList.forEach(SavePagesPool::join);
+            taskList.forEach(SavePagePool::join);
         } catch (SocketTimeoutException socketTimeoutException) {
             changeSiteStatusToFiledError(siteModelRepository, socketTimeoutException.getMessage());
             log.error("Timeout accessing {}: {}", url, socketTimeoutException.getMessage());
@@ -130,7 +130,7 @@ public class SavePagesPool extends RecursiveTask<Void> {
 
     private void changeSiteStatusToFailedStop(SiteModelRepository siteModelRepository) {
         siteModelRepository.findAll().forEach(siteModel -> {
-            siteModel.setStatus(Status.FAILED);
+            siteModel.setSiteStatus(SiteStatus.FAILED);
             siteModel.setStatusTime(LocalDateTime.now());
             siteModel.setLastError("Indexing has been stopped by user");
             siteModelRepository.saveAndFlush(siteModel);
@@ -138,7 +138,7 @@ public class SavePagesPool extends RecursiveTask<Void> {
     }
 
     private void changeSiteStatusToFiledError(SiteModelRepository siteModelRepository, String exception) {
-        siteModel.setStatus(Status.FAILED);
+        siteModel.setSiteStatus(SiteStatus.FAILED);
         siteModel.setLastError(exception);
         siteModel.setStatusTime(LocalDateTime.now());
         siteModelRepository.saveAndFlush(siteModel);

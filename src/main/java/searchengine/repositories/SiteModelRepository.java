@@ -8,4 +8,5 @@ import searchengine.model.SiteModel;
 public interface SiteModelRepository extends JpaRepository<SiteModel, Integer> {
     @Transactional
     void deleteByName(String name);
+    SiteModel findByUrl(String url);
 }

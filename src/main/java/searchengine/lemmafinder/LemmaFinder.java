@@ -11,21 +11,19 @@ import java.util.regex.Pattern;
 public class LemmaFinder {
     private String text;
     private final LuceneMorphology luceneMorphology;
+    private static final String WORD_TYPE_REGEX = "\\W\\w&&[^а-яА-Я]";
+    private static final String[] PARTICLES_NAMES =
+            new String[]{" МЕЖД", " ПРЕДЛ", " СОЮЗ", " МС-П", " ЧАСТ", " МС"};
 
     public LemmaFinder() throws IOException {
         luceneMorphology = new RussianLuceneMorphology();
     }
 
-    private static final String WORD_TYPE_REGEX = "\\W\\w&&[^а-яА-Я]";
-    private static final String[] PARTICLES_NAMES =
-            new String[]{" МЕЖД", " ПРЕДЛ", " СОЮЗ", " МС-П", " ЧАСТ", " МС"};
-
     public HashMap<String, Integer> collectLemmas(String text)  {
         HashMap<String, Integer> lemmas = new HashMap<>();
-
         String regex = "[^0-9,;.!'?\"\\s]+";
         Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(text.toLowerCase().replaceAll("([^а-я])", " ").trim());
+        Matcher matcher = pattern.matcher(cleanHtmlFromTags(text).toLowerCase().replaceAll("([^а-я])", " ").trim());
 
         while (matcher.find()) {
             String word = matcher.group();
@@ -41,6 +39,10 @@ public class LemmaFinder {
             }
         }
         return lemmas;
+    }
+
+    private String cleanHtmlFromTags(String html) {
+        return html.replaceAll("<[^>]*>", "");
     }
 
     private boolean isCorrectWordForm(String word) {

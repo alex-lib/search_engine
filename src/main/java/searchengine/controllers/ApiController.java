@@ -1,14 +1,17 @@
 package searchengine.controllers;
+
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpEntity;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import searchengine.dto.startIndexing.IndexingResponse;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.services.indexingservice.IndexingService;
 import searchengine.services.statisticsservice.StatisticsService;
+
+import javax.swing.text.html.HTML;
+import java.net.URL;
 
 @RequiredArgsConstructor
 @RestController
@@ -32,5 +35,10 @@ public class ApiController {
     @GetMapping("/stopIndexing")
     public ResponseEntity<IndexingResponse> stopIndexing() {
         return ResponseEntity.ok(IndexingService.stopIndexing());
+    }
+
+    @PostMapping("/indexPage")
+    public ResponseEntity<IndexingResponse> indexPage(@RequestBody String htmlCode) {
+        return ResponseEntity.ok(IndexingService.indexPage(htmlCode));
     }
 }
