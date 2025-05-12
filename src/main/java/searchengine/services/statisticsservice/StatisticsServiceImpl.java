@@ -7,50 +7,34 @@ import searchengine.dto.statistics.DetailedStatisticsItem;
 import searchengine.dto.statistics.StatisticsData;
 import searchengine.dto.statistics.StatisticsResponse;
 import searchengine.dto.statistics.TotalStatistics;
+import searchengine.repositories.LemmaModelRepository;
+import searchengine.repositories.PageModelRepository;
+import searchengine.repositories.SiteModelRepository;
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
 
 @Service
 @RequiredArgsConstructor
 public class StatisticsServiceImpl implements StatisticsService {
-
-    private final Random random = new Random();
     private final SitesList sites;
+    private final PageModelRepository pageModelRepository;
+    private final LemmaModelRepository lemmaModelRepository;
+    private final SiteModelRepository siteModelRepository;
 
     @Override
     public StatisticsResponse getStatistics() {
-        String[] statuses = { "INDEXED", "FAILED", "INDEXING" };
-        String[] errors = {
-                "Ошибка индексации: главная страница сайта не доступна",
-                "Ошибка индексации: сайт не доступен",
-                ""
-        };
-
         TotalStatistics total = new TotalStatistics();
         total.setSites(sites.getSites().size());
+        total.setPages(pageModelRepository.findAll().size());
+        total.setLemmas(lemmaModelRepository.findAll().size());
         total.setIndexing(true);
-
         List<DetailedStatisticsItem> detailed = new ArrayList<>();
         List<Site> sitesList = sites.getSites();
-        for(int i = 0; i < sitesList.size(); i++) {
-            Site site = sitesList.get(i);
-            DetailedStatisticsItem item = new DetailedStatisticsItem();
-            item.setName(site.getName());
-            item.setUrl(site.getUrl());
-            int pages = random.nextInt(1_000);
-            int lemmas = pages * random.nextInt(1_000);
-            item.setPages(pages);
-            item.setLemmas(lemmas);
-            item.setStatus(statuses[i % 3]);
-            item.setError(errors[i % 3]);
-            item.setStatusTime(System.currentTimeMillis() -
-                    (random.nextInt(10_000)));
-            total.setPages(total.getPages() + pages);
-            total.setLemmas(total.getLemmas() + lemmas);
+        for (Site site : sitesList) {
+            DetailedStatisticsItem item = setStatisticToSite(site);
             detailed.add(item);
         }
-
         StatisticsResponse response = new StatisticsResponse();
         StatisticsData data = new StatisticsData();
         data.setTotal(total);
@@ -58,5 +42,31 @@ public class StatisticsServiceImpl implements StatisticsService {
         response.setStatistics(data);
         response.setResult(true);
         return response;
+    }
+
+    private DetailedStatisticsItem setStatisticToSite(Site site) {
+        DetailedStatisticsItem item = new DetailedStatisticsItem();
+        item.setName(site.getName());
+        item.setUrl(site.getUrl());
+        if (!siteModelRepository.findAll().isEmpty()) {
+            item.setPages((int) pageModelRepository.findAll().stream()
+                    .filter(p -> p.getSite().getUrl().equals(site.getUrl()))
+                    .count());
+            item.setLemmas((int) lemmaModelRepository.findAll().stream()
+                    .filter(l -> l.getSite().getUrl().equals(site.getUrl()))
+                    .count());
+            item.setStatus(String.valueOf(siteModelRepository.findByUrl(site.getUrl()).getSiteStatus()));
+            item.setError(siteModelRepository.findByUrl(site.getUrl()).getLastError() != null ?
+                    siteModelRepository.findByUrl(site.getUrl()).getLastError()
+                    : "");
+            item.setStatusTime(siteModelRepository.findByUrl(site.getUrl()).getStatusTime());
+        } else {
+            item.setPages(0);
+            item.setLemmas(0);
+            item.setStatus("");
+            item.setError("");
+            item.setStatusTime(LocalDateTime.now());
+        }
+        return item;
     }
 }

@@ -8,7 +8,6 @@ import searchengine.model.SiteModel;
 @Repository
 public interface PageModelRepository extends JpaRepository<PageModel, Integer> {
     Boolean existsBySiteAndPath(SiteModel siteModel, String path);
-    PageModel findByPath(String url);
     @Transactional
     void deleteBySiteAndPath(SiteModel siteModel, String path);
 }

@@ -1,8 +1,5 @@
 package searchengine.services.indexingservice;
-import searchengine.dto.startIndexing.IndexingResponse;
-
-import javax.swing.text.html.HTML;
-import java.net.URL;
+import searchengine.dto.indexing.IndexingResponse;
 
 public interface IndexingService {
     IndexingResponse startIndexing();

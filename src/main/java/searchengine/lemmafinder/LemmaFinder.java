@@ -9,14 +9,17 @@ import java.util.regex.Pattern;
 
 @Slf4j
 public class LemmaFinder {
-    private String text;
-    private final LuceneMorphology luceneMorphology;
+    private static final LuceneMorphology LUCENE_MORPHOLOGY;
     private static final String WORD_TYPE_REGEX = "\\W\\w&&[^а-яА-Я]";
-    private static final String[] PARTICLES_NAMES =
-            new String[]{" МЕЖД", " ПРЕДЛ", " СОЮЗ", " МС-П", " ЧАСТ", " МС"};
+    private static final Set<String> PARTICLES_NAMES =
+            Set.of(" МЕЖД", " ПРЕДЛ", " СОЮЗ", " МС-П", " ЧАСТ", " МС");
 
-    public LemmaFinder() throws IOException {
-        luceneMorphology = new RussianLuceneMorphology();
+    static {
+        try {
+            LUCENE_MORPHOLOGY = new RussianLuceneMorphology();
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to initialize morphology analyzer", e);
+        }
     }
 
     public HashMap<String, Integer> collectLemmas(String text)  {
@@ -27,13 +30,11 @@ public class LemmaFinder {
 
         while (matcher.find()) {
             String word = matcher.group();
-
             if (isCorrectWordForm(word)) {
-                List<String> wordBaseForms = luceneMorphology.getMorphInfo(matcher.group());
+                List<String> wordBaseForms = LUCENE_MORPHOLOGY.getMorphInfo(matcher.group());
                 String rightForm = getRightForm(wordBaseForms, word);
-
                 if (!hasParticleProperty(rightForm)) {
-                    String lemma = luceneMorphology.getNormalForms(matcher.group()).get(0);
+                    String lemma = LUCENE_MORPHOLOGY.getNormalForms(matcher.group()).get(0);
                     lemmas.put(lemma, lemmas.getOrDefault(lemma, 0) + 1);
                 }
             }
@@ -46,10 +47,7 @@ public class LemmaFinder {
     }
 
     private boolean isCorrectWordForm(String word) {
-        if (word.matches(WORD_TYPE_REGEX)) {
-            return false;
-        }
-        return true;
+        return !word.matches(WORD_TYPE_REGEX) && word.length() > 2;
     }
 
     private String getRightForm(List<String> wordBaseForms, String word) {
@@ -69,11 +67,7 @@ public class LemmaFinder {
     }
 
     private boolean hasParticleProperty(String rightForm) {
-        for (String property : PARTICLES_NAMES) {
-            if (rightForm.toUpperCase().contains(property)) {
-                return true;
-            }
-        }
-        return false;
+        String upperForm = rightForm.toUpperCase();
+        return PARTICLES_NAMES.stream().anyMatch(upperForm::contains);
     }
 }

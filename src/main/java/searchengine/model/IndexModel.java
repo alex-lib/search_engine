@@ -5,6 +5,7 @@ import lombok.*;
 @Builder
 @Getter
 @Setter
+@NoArgsConstructor
 @AllArgsConstructor
 @Entity
 @Table(name = "indexes")

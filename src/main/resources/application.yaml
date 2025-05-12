@@ -1,4 +1,3 @@
-
 indexing-settings:
   sites:
     - url: https://volochek.life/
@@ -7,6 +6,10 @@ indexing-settings:
       name: Svetlovka.ru
     - url: https://www.playback.ru/
       name: PlayBack.ru
+    - url: https://sendel.ru/
+      name: Sendel.ru
+    - url: https://gramota.ru/
+      name: Gramota.ru
 
 server:
   port: 8080
@@ -20,7 +23,7 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.MySQL8Dialect
     hibernate:
-      ddl-auto: validate
+      ddl-auto: create
     show-sql: false
 
 visit-settings:
