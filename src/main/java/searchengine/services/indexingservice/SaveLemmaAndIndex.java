@@ -52,7 +52,15 @@ public class SaveLemmaAndIndex {
                     LemmaModel lemmaModelFromDb = lemmaModelRepository.findBySiteAndLemma(pageModel.getSite(), lemma.getKey());
                     lemmaModelFromDb.setFrequency(lemmaModelFromDb.getFrequency() + 1);
                     lemmaModelRepository.saveAndFlush(lemmaModelFromDb);
-                    buildAndSaveIndex(pageModel, lemma, lemmaModelFromDb);
+
+                    if (indexModelRepository.existsByLemmaAndPage(lemmaModelFromDb, pageModel)) {
+                        IndexModel indexModelFromDb = indexModelRepository.findByLemmaAndPage(lemmaModelFromDb, pageModel);
+                        indexModelFromDb.setRankScore(indexModelFromDb.getRankScore() + lemma.getValue());
+                        indexModelRepository.saveAndFlush(indexModelFromDb);
+                    } else {
+                        buildAndSaveIndex(pageModel, lemma, lemmaModelFromDb);
+                    }
+
                 } else {
                     LemmaModel lemmaModel = buildAndSaveLemma(pageModel.getSite(), lemma);
                     buildAndSaveIndex(pageModel, lemma, lemmaModel);

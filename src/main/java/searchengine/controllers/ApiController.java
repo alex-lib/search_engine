@@ -10,6 +10,8 @@ import searchengine.services.indexingservice.IndexingService;
 import searchengine.services.searchingservice.SearchingService;
 import searchengine.services.statisticsservice.StatisticsService;
 
+import java.util.Optional;
+
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api")
