@@ -36,6 +36,11 @@ public class IndexingServiceImpl implements IndexingService, InterruptionChecker
 
     @Override
     public IndexingResponse startIndexing() {
+
+        for (Site site : sites.getSites()) {
+            site.setUrl(site.getUrl() + "/");
+        }
+
         isInterrupted = false;
         if (siteModelRepository.findAll().stream()
                 .allMatch(siteModel -> siteModel.getSiteStatus() == SiteStatus.INDEXING) &&

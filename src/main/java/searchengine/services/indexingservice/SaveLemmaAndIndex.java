@@ -41,7 +41,7 @@ public class SaveLemmaAndIndex {
         }
     }
 
-    private synchronized void collectLemmasAndIndexes(String content) {
+    private void collectLemmasAndIndexes(String content) {
         LemmaFinder lemmaFinder = new LemmaFinder();
         HashMap<String, Integer> lemmas = lemmaFinder.collectLemmas(content);
 
@@ -50,17 +50,15 @@ public class SaveLemmaAndIndex {
                 if (lemmaModelRepository.existsBySiteAndLemma(pageModel.getSite(), lemma.getKey())) {
                     log.debug("Lemma {} already exists for site {}", lemma.getKey(), pageModel.getSite().getName());
                     LemmaModel lemmaModelFromDb = lemmaModelRepository.findBySiteAndLemma(pageModel.getSite(), lemma.getKey());
-                    lemmaModelFromDb.setFrequency(lemmaModelFromDb.getFrequency() + 1);
-                    lemmaModelRepository.saveAndFlush(lemmaModelFromDb);
-
                     if (indexModelRepository.existsByLemmaAndPage(lemmaModelFromDb, pageModel)) {
                         IndexModel indexModelFromDb = indexModelRepository.findByLemmaAndPage(lemmaModelFromDb, pageModel);
                         indexModelFromDb.setRankScore(indexModelFromDb.getRankScore() + lemma.getValue());
-                        indexModelRepository.saveAndFlush(indexModelFromDb);
+                        indexModelRepository.save(indexModelFromDb);
                     } else {
+                        lemmaModelFromDb.setFrequency(lemmaModelFromDb.getFrequency() + 1);
+                        lemmaModelRepository.save(lemmaModelFromDb);
                         buildAndSaveIndex(pageModel, lemma, lemmaModelFromDb);
                     }
-
                 } else {
                     LemmaModel lemmaModel = buildAndSaveLemma(pageModel.getSite(), lemma);
                     buildAndSaveIndex(pageModel, lemma, lemmaModel);
@@ -76,7 +74,7 @@ public class SaveLemmaAndIndex {
         LemmaModel lemmaModel = LemmaModel.builder()
                 .site(siteModel)
                 .lemma(lemma.getKey())
-                .frequency(lemma.getValue())
+                .frequency(1)
                 .build();
         lemmaModelRepository.save(lemmaModel);
         log.debug("Lemma {} created for site {}", lemma.getKey(), pageModel.getSite().getName());

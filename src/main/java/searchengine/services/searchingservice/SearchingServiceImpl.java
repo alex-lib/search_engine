@@ -9,7 +9,9 @@ import searchengine.lemmafinder.LemmaFinder;
 import searchengine.model.IndexModel;
 import searchengine.model.LemmaModel;
 import searchengine.model.PageModel;
+import searchengine.model.SiteModel;
 import searchengine.repositories.LemmaModelRepository;
+import searchengine.repositories.SiteModelRepository;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -21,6 +23,7 @@ import java.util.stream.Stream;
 @RequiredArgsConstructor
 public class SearchingServiceImpl implements SearchingService {
     private final LemmaModelRepository lemmaModelRepository;
+    private final SiteModelRepository siteModelRepository;
     private final LemmaFinder lemmaFinder = new LemmaFinder();
     private static final int SNIPPET_LENGTH = 150;
     private static final int CONTEXT_PADDING = 50;
@@ -38,7 +41,7 @@ public class SearchingServiceImpl implements SearchingService {
         List<String> sortedLemmasList = findAndSortLemmasInDb(query);
         if (site != null) {
             List<PageModel> matchedPages = getPagesForLemma(sortedLemmasList.get(0), site);
-            for (int i = 0; i < sortedLemmasList.size() && !matchedPages.isEmpty(); i++) {
+            for (int i = 1; i < sortedLemmasList.size() && !matchedPages.isEmpty(); i++) {
                 String lemma = sortedLemmasList.get(i);
                 List<PageModel> pagesForLemma = getPagesForLemma(lemma, site);
                 matchedPages = matchedPages.stream()
@@ -55,7 +58,13 @@ public class SearchingServiceImpl implements SearchingService {
     }
 
     private List<PageModel> getPagesForLemma(String lemma, String site) {
-        return lemmaModelRepository.findByLemmaAndSite(lemma, site).getIndexes().stream()
+        SiteModel siteModel = new SiteModel();
+        for (SiteModel siteFromDb : siteModelRepository.findAll()) {
+            if (siteFromDb.getUrl().startsWith(site)) {
+                siteModel = siteFromDb;
+            }
+        }
+        return lemmaModelRepository.findBySiteAndLemma(siteModel, lemma).getIndexes().stream()
                 .map(IndexModel::getPage)
                 .collect(Collectors.toList());
     }
@@ -150,11 +159,9 @@ public class SearchingServiceImpl implements SearchingService {
     }
 
     private String highlightMatches(String snippet, String query) {
-
         String regex = getRegexToMatchWords(query);
         Matcher matcher = Pattern.compile(regex).matcher(snippet);
         StringBuilder stringBuilder = new StringBuilder();
-
         while (matcher.find()) {
             matcher.appendReplacement(stringBuilder, "<b>" + matcher.group() + "</b>");
         }
