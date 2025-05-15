@@ -36,6 +36,11 @@ public class SavePagePool extends RecursiveTask<Void> {
     @Override
     protected Void compute() {
         try {
+
+            if (!url.endsWith("/")) {
+                return null;
+            }
+
             Document document = Jsoup.connect(url)
                     .userAgent(userAgent)
                     .referrer(referrer)

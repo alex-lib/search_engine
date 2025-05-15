@@ -39,31 +39,43 @@ public class SearchingServiceImpl implements SearchingService {
         }
 
         List<String> sortedLemmasList = findAndSortLemmasInDb(query);
-        if (site != null) {
-            List<PageModel> matchedPages = getPagesForLemma(sortedLemmasList.get(0), site);
+        List<PageModel> matchedPages = getListOfMatchedPages(sortedLemmasList, site);
+            List<SearchingData> searchingDataList = getSearchingData(matchedPages, query, sortedLemmasList);
+            search.setSearchingData(searchingDataList);
+            search.setCount(searchingDataList.size());
+            search.setResult(true);
+        return search;
+    }
+
+    private List<PageModel> getListOfMatchedPages(List<String> sortedLemmasList, String site) {
+        List<PageModel> matchedPages = new ArrayList<>();
+        if (site == null) {
+            for (SiteModel siteFromDb : siteModelRepository.findAll()) {
+                List<PageModel> extraList = getPagesForLemma(sortedLemmasList.get(0), siteFromDb);
+                for (int i = 1; i < sortedLemmasList.size(); i++) {
+                    String lemma = sortedLemmasList.get(i);
+                    List<PageModel> pagesForLemma = getPagesForLemma(lemma, siteFromDb);
+                    extraList = extraList.stream()
+                            .filter(pagesForLemma::contains)
+                            .toList();
+                }
+                matchedPages.addAll(extraList);
+            }
+        } else {
+            SiteModel siteFromDb = siteModelRepository.findByUrl(site + "/");
+            matchedPages = getPagesForLemma(sortedLemmasList.get(0), siteFromDb);
             for (int i = 1; i < sortedLemmasList.size() && !matchedPages.isEmpty(); i++) {
                 String lemma = sortedLemmasList.get(i);
-                List<PageModel> pagesForLemma = getPagesForLemma(lemma, site);
+                List<PageModel> pagesForLemma = getPagesForLemma(lemma, siteFromDb);
                 matchedPages = matchedPages.stream()
                         .filter(pagesForLemma::contains)
                         .toList();
             }
-            List<SearchingData> searchingDataList = getSearchingData(matchedPages, site, query, sortedLemmasList);
-            search.setSearchingData(searchingDataList);
-            search.setCount(searchingDataList.size());
-            search.setResult(true);
-
         }
-        return search;
+        return matchedPages;
     }
 
-    private List<PageModel> getPagesForLemma(String lemma, String site) {
-        SiteModel siteModel = new SiteModel();
-        for (SiteModel siteFromDb : siteModelRepository.findAll()) {
-            if (siteFromDb.getUrl().startsWith(site)) {
-                siteModel = siteFromDb;
-            }
-        }
+    private List<PageModel> getPagesForLemma(String lemma, SiteModel siteModel) {
         return lemmaModelRepository.findBySiteAndLemma(siteModel, lemma).getIndexes().stream()
                 .map(IndexModel::getPage)
                 .collect(Collectors.toList());
@@ -87,11 +99,11 @@ public class SearchingServiceImpl implements SearchingService {
                 .map(IndexModel::getRankScore).reduce(0f, Float::sum);
     }
 
-    private List<SearchingData> getSearchingData(List<PageModel> matchedPages, String site, String query, List<String> sortedLemmasList) {
+    private List<SearchingData> getSearchingData(List<PageModel> matchedPages, String query, List<String> sortedLemmasList) {
         List<SearchingData> searchingDataList = new ArrayList<>();
         for (PageModel pageModel : matchedPages) {
             SearchingData searchingData = new SearchingData();
-            searchingData.setSite(site);
+            searchingData.setSite(pageModel.getSite().getUrl());
             searchingData.setSiteName(pageModel.getSite().getName());
             searchingData.setUrl(pageModel.getPath());
             int startTitle = pageModel.getContent().indexOf("<title>") + 7;
