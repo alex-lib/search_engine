@@ -49,17 +49,38 @@ public class StatisticsServiceImpl implements StatisticsService {
         item.setName(site.getName());
         item.setUrl(site.getUrl());
         if (!siteModelRepository.findAll().isEmpty()) {
-            item.setPages((int) pageModelRepository.findAll().stream()
-                    .filter(p -> p.getSite().getUrl().equals(site.getUrl()))
+            item.setPages((int) pageModelRepository.findAll()
+                    .stream()
+                    .filter(p -> p.getSite().getUrl().startsWith(site.getUrl()))
                     .count());
-            item.setLemmas((int) lemmaModelRepository.findAll().stream()
-                    .filter(l -> l.getSite().getUrl().equals(site.getUrl()))
+            item.setLemmas((int) lemmaModelRepository.findAll()
+                    .stream()
+                    .filter(l -> l.getSite().getUrl().startsWith(site.getUrl()))
                     .count());
-            item.setStatus(String.valueOf(siteModelRepository.findByUrl(site.getUrl() + "/").getSiteStatus()));
-            item.setError(siteModelRepository.findByUrl(site.getUrl() + "/").getLastError() != null ?
-                    siteModelRepository.findByUrl(site.getUrl() + "/").getLastError()
+            item.setStatus(String.valueOf(siteModelRepository.findAll()
+                    .stream()
+                    .filter(s -> s.getUrl().startsWith(site.getUrl()))
+                    .findFirst()
+                    .orElse(null)
+                    .getSiteStatus()));
+            item.setError(siteModelRepository.findAll()
+                    .stream()
+                    .filter(s -> s.getUrl().startsWith(site.getUrl()))
+                    .findFirst()
+                    .orElse(null)
+                    .getLastError() != null ?
+                    siteModelRepository.findAll()
+                            .stream()
+                            .filter(s -> s.getUrl().startsWith(site.getUrl()))
+                            .findFirst().orElse(null)
+                            .getLastError()
                     : "");
-            item.setStatusTime(siteModelRepository.findByUrl(site.getUrl()+ "/").getStatusTime());
+            item.setStatusTime(siteModelRepository.findAll()
+                    .stream()
+                    .filter(s -> s.getUrl().startsWith(site.getUrl()))
+                    .findFirst()
+                    .orElse(null)
+                    .getStatusTime());
         } else {
             item.setPages(0);
             item.setLemmas(0);

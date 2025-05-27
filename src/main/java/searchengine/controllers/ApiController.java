@@ -10,8 +10,6 @@ import searchengine.services.indexingservice.IndexingService;
 import searchengine.services.searchingservice.SearchingService;
 import searchengine.services.statisticsservice.StatisticsService;
 
-import java.util.Optional;
-
 @RequiredArgsConstructor
 @RestController
 @RequestMapping("/api")
@@ -44,7 +42,10 @@ public class ApiController {
     }
 
     @GetMapping("/search")
-    public ResponseEntity<SearchingResponse> search(@RequestParam String query, @RequestParam(required = false) String site ) {
-        return ResponseEntity.ok(searchingService.search(query, site));
+    public ResponseEntity<SearchingResponse> search(@RequestParam String query,
+                                                    @RequestParam(required = false) String site,
+                                                    @RequestParam(required = false, defaultValue = "10") int limit,
+                                                    @RequestParam(required = false, defaultValue = "0") int offset) {
+        return ResponseEntity.ok(searchingService.search(query, site, limit, offset));
     }
 }

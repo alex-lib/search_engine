@@ -1,4 +1,5 @@
 package searchengine.services.indexingservice;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -11,6 +12,7 @@ import searchengine.repositories.IndexModelRepository;
 import searchengine.repositories.LemmaModelRepository;
 import searchengine.repositories.PageModelRepository;
 import searchengine.repositories.SiteModelRepository;
+
 import java.net.URLDecoder;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
@@ -32,14 +34,10 @@ public class IndexingServiceImpl implements IndexingService, InterruptionChecker
     private String userAgent;
     @Value("${visit-settings.referrer}")
     private String referrer;
-    private boolean isInterrupted;
+    private volatile boolean isInterrupted;
 
     @Override
     public IndexingResponse startIndexing() {
-
-        for (Site site : sites.getSites()) {
-            site.setUrl(site.getUrl() + "/");
-        }
 
         isInterrupted = false;
         if (siteModelRepository.findAll().stream()
@@ -59,25 +57,29 @@ public class IndexingServiceImpl implements IndexingService, InterruptionChecker
         siteModelRepository.findAll().forEach(siteModel -> {
             if (isInterrupted) return;
             ForkJoinTask<Void> task = pool.submit(() ->
-                    new SavePagePool
-                            (siteModel,
-                                    siteModel.getUrl(),
-                                    siteModelRepository,
-                                    pageModelRepository,
-                                    userAgent,
-                                    referrer,
-                                    this::isInterrupted,
-                                    lemmaModelRepository,
-                                    indexModelRepository).invoke());
+                    new SaverPagesPool(
+                            siteModel,
+                            siteModel.getUrl(),
+                            siteModelRepository,
+                            pageModelRepository,
+                            userAgent,
+                            referrer,
+                            this::isInterrupted,
+                            lemmaModelRepository,
+                            indexModelRepository).invoke());
             tasks.add(task);
         });
         tasks.forEach(ForkJoinTask::join);
         pool.shutdown();
 
-        if (!isInterrupted) {
-            changeAllSitesStatusToIndexed(siteModelRepository);
-            log.info("Sites have been indexed");
+        if (siteModelRepository.findAll().stream()
+                .allMatch(siteModel -> siteModel.getSiteStatus() == SiteStatus.FAILED)) {
+            log.info("Sites haven't been indexed");
+            return new IndexingResponse(false, "Something went wrong");
         }
+
+        changeSitesStatusToIndexed(siteModelRepository);
+        log.info("Sites have been indexed");
         return new IndexingResponse(true, "");
     }
 
@@ -93,19 +95,18 @@ public class IndexingServiceImpl implements IndexingService, InterruptionChecker
             SiteModel siteModel = SiteModel.builder()
                     .siteStatus(SiteStatus.INDEXING)
                     .statusTime(LocalDateTime.now())
-                    .url(site.getUrl())
+                    .url(site.getUrl() + "/")
                     .name(site.getName()).build();
             siteModelRepository.saveAndFlush(siteModel);
             log.info("Site {} has been initialized successfully", site.getName());
         }
     }
 
-    private void changeAllSitesStatusToIndexed(SiteModelRepository siteModelRepository) {
+    private void changeSitesStatusToIndexed(SiteModelRepository siteModelRepository) {
         siteModelRepository.findAll().stream()
                 .filter(siteModel -> siteModel.getSiteStatus() == SiteStatus.INDEXING)
                 .forEach(siteModel -> {
                     siteModel.setSiteStatus(SiteStatus.INDEXED);
-                    siteModel.setStatusTime(LocalDateTime.now());
                     siteModelRepository.saveAndFlush(siteModel);
                     log.debug("Site {} has changed status to indexed", siteModel.getName());
                 });
@@ -123,7 +124,7 @@ public class IndexingServiceImpl implements IndexingService, InterruptionChecker
         }
         isInterrupted = true;
         log.info("Indexing has been stopped by user");
-        return new IndexingResponse(true, "");
+        return new IndexingResponse(true, "Indexing has been stopped by user");
     }
 
     @Override
@@ -139,14 +140,13 @@ public class IndexingServiceImpl implements IndexingService, InterruptionChecker
 
         for (SiteModel siteModel : siteModelRepository.findAll()) {
             String url = siteModel.getUrl();
-
             if (decodedHtmlCode.startsWith(url)) {
                 log.debug("Found site: {}", siteModel.getName());
                 String childUrl = decodedHtmlCode.substring(url.length() - 1);
                 log.debug("Target url: {}", childUrl);
                 deletePageIfExisted(siteModel, childUrl);
-
-                SavePagePool task = new SavePagePool(siteModel,
+                SaverPagesPool task = new SaverPagesPool(
+                        siteModel,
                         decodedHtmlCode,
                         siteModelRepository,
                         pageModelRepository,
@@ -155,10 +155,8 @@ public class IndexingServiceImpl implements IndexingService, InterruptionChecker
                         this::isInterrupted,
                         lemmaModelRepository,
                         indexModelRepository);
-
                 ForkJoinPool pool = new ForkJoinPool();
                 pool.invoke(task);
-
                 log.info("Page has been indexed successfully {}", decodedHtmlCode);
                 return new IndexingResponse(true, "");
             }

@@ -1,17 +1,11 @@
 indexing-settings:
   sites:
-#    - url: https://volochek.life
-#      name: Volochek
-#    - url: https://www.svetlovka.ru
-#      name: Svetlovka
-#    - url: https://www.playback.ru
-#      name: PlayBack
-    - url: https://sendel.ru
-      name: Sendel
-#    - url: https://gramota.ru
-#      name: Gramota
-    - url: https://vozavia.ru
-      name: AirportVrn
+    - url: https://www.playback.ru
+      name: PlayBack
+    - url: https://volochek.life
+      name: Volochek
+    - url: https://nikoartgallery.com
+      name: NikoArtGallery
 
 server:
   port: 8080

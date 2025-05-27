@@ -26,13 +26,15 @@ public class LemmaFinder {
         HashMap<String, Integer> lemmas = new HashMap<>();
         String regex = "[^0-9,;.!'?\"\\s]+";
         Pattern pattern = Pattern.compile(regex);
-        Matcher matcher = pattern.matcher(cleanHtmlFromTags(text).toLowerCase().replaceAll("([^а-я])", " ").trim());
-
+        Matcher matcher = pattern.matcher(cleanHtmlFromTags(text)
+                .toLowerCase()
+                .replaceAll("([^а-я])", " ")
+                .trim());
         while (matcher.find()) {
             String word = matcher.group();
             if (isCorrectWordForm(word)) {
                 List<String> wordBaseForms = LUCENE_MORPHOLOGY.getMorphInfo(matcher.group());
-                String rightForm = getRightForm(wordBaseForms, word);
+                String rightForm = getRightFormOfWord(wordBaseForms, word);
                 if (!hasParticleProperty(rightForm)) {
                     String lemma = LUCENE_MORPHOLOGY.getNormalForms(matcher.group()).get(0);
                     lemmas.put(lemma, lemmas.getOrDefault(lemma, 0) + 1);
@@ -50,7 +52,7 @@ public class LemmaFinder {
         return !word.matches(WORD_TYPE_REGEX) && word.length() > 2;
     }
 
-    private String getRightForm(List<String> wordBaseForms, String word) {
+    private String getRightFormOfWord(List<String> wordBaseForms, String word) {
         HashMap<String, Integer> forms = new HashMap<>();
         for (String wordForm : wordBaseForms) {
             forms.put(wordForm.substring(0, wordForm.indexOf('|')),

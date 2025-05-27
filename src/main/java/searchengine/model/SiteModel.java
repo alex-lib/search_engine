@@ -27,7 +27,6 @@ public class SiteModel {
     private String url;
     @Column(name = "name", columnDefinition = "VARCHAR(255)")
     private String name;
-
     @OneToMany(mappedBy = "site", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<PageModel> pages;
     @OneToMany(mappedBy = "site", cascade = CascadeType.ALL, fetch = FetchType.LAZY)

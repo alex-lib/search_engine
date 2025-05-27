@@ -6,10 +6,7 @@ import org.springframework.stereotype.Service;
 import searchengine.dto.searching.SearchingData;
 import searchengine.dto.searching.SearchingResponse;
 import searchengine.lemmafinder.LemmaFinder;
-import searchengine.model.IndexModel;
-import searchengine.model.LemmaModel;
-import searchengine.model.PageModel;
-import searchengine.model.SiteModel;
+import searchengine.model.*;
 import searchengine.repositories.LemmaModelRepository;
 import searchengine.repositories.SiteModelRepository;
 import java.util.*;
@@ -29,21 +26,28 @@ public class SearchingServiceImpl implements SearchingService {
     private static final int CONTEXT_PADDING = 50;
 
     @Override
-    public SearchingResponse search(String query, String site) {
+    public SearchingResponse search(String query, String site, int limit, int offset) {
         SearchingResponse search = new SearchingResponse();
-
         if (query == null) {
             search.setError("An empty search query was specified");
             search.setResult(false);
-            return search;
         }
-
+        if (siteModelRepository.findAll().stream()
+                .anyMatch(siteModel -> siteModel.getSiteStatus() == SiteStatus.INDEXING)) {
+            search.setError("Site haven't been indexed yet");
+            search.setResult(false);
+        }
         List<String> sortedLemmasList = findAndSortLemmasInDb(query);
-        List<PageModel> matchedPages = getListOfMatchedPages(sortedLemmasList, site);
-            List<SearchingData> searchingDataList = getSearchingData(matchedPages, query, sortedLemmasList);
-            search.setSearchingData(searchingDataList);
-            search.setCount(searchingDataList.size());
+        if(sortedLemmasList != null) {
+            List<PageModel> matchedPages = getListOfMatchedPages(sortedLemmasList, site);
+            Set<SearchingData> searchingDataSet = getSearchingData(matchedPages, query, sortedLemmasList, limit);
+            search.setData(searchingDataSet.stream().limit(limit).toList());
+            search.setCount(searchingDataSet.size());
             search.setResult(true);
+        } else {
+            search.setError("No matches found");
+            search.setResult(false);
+        }
         return search;
     }
 
@@ -81,13 +85,14 @@ public class SearchingServiceImpl implements SearchingService {
                 .collect(Collectors.toList());
     }
 
-    private List<String> findAndSortLemmasInDb(String query) {
+    private List<String>findAndSortLemmasInDb(String query) {
         Set<String> lemmasFromQuery = lemmaFinder.collectLemmas(query).keySet();
         Map<String, Integer> lemmasMatchesWithLemmasInDb = lemmasFromQuery.stream()
                 .map(lemmaModelRepository::findByLemma)
+                .filter(Objects::nonNull)
                 .collect(Collectors.toMap(LemmaModel::getLemma, LemmaModel::getFrequency));
-
-        return lemmasMatchesWithLemmasInDb.entrySet().stream()
+        return lemmasMatchesWithLemmasInDb.isEmpty() ? null :
+                lemmasMatchesWithLemmasInDb.entrySet().stream()
                 .sorted(Map.Entry.comparingByValue())
                 .map(Map.Entry::getKey)
                 .toList();
@@ -99,11 +104,11 @@ public class SearchingServiceImpl implements SearchingService {
                 .map(IndexModel::getRankScore).reduce(0f, Float::sum);
     }
 
-    private List<SearchingData> getSearchingData(List<PageModel> matchedPages, String query, List<String> sortedLemmasList) {
-        List<SearchingData> searchingDataList = new ArrayList<>();
+    private TreeSet<SearchingData> getSearchingData(List<PageModel> matchedPages, String query, List<String> sortedLemmasList, int limit) {
+        TreeSet<SearchingData> dataSet = new TreeSet<>();
         for (PageModel pageModel : matchedPages) {
             SearchingData searchingData = new SearchingData();
-            searchingData.setSite(pageModel.getSite().getUrl());
+            searchingData.setSite(pageModel.getSite().getUrl().substring(0, pageModel.getSite().getUrl().length() - 1));
             searchingData.setSiteName(pageModel.getSite().getName());
             searchingData.setUrl(pageModel.getPath());
             int startTitle = pageModel.getContent().indexOf("<title>") + 7;
@@ -114,12 +119,11 @@ public class SearchingServiceImpl implements SearchingService {
             searchingData.setSnippet(snippet);
             float relevance = calculateAbsoluteRelevance(pageModel, sortedLemmasList);
             searchingData.setRelevance(relevance);
-            System.out.println(searchingData);
-            searchingDataList.add(searchingData);
+            dataSet.add(searchingData);
         }
-        float maxRelevance = searchingDataList.stream().map(SearchingData::getRelevance).max(Float::compareTo).orElse(0f);
-        searchingDataList.forEach(data -> data.setRelevance(maxRelevance / data.getRelevance()));
-        return searchingDataList;
+        float maxRelevance = dataSet.stream().map(SearchingData::getRelevance).max(Float::compareTo).orElse(0f);
+        dataSet.forEach(d -> d.setRelevance(maxRelevance / d.getRelevance()));
+        return dataSet;
     }
 
     private String generateSnippet(String content, String query) {
@@ -143,7 +147,7 @@ public class SearchingServiceImpl implements SearchingService {
     }
 
     private String buildSnippetAroundMatches(String text, List<Integer> positions) {
-        int start = findOptimalSnippetStart(positions, text);
+        int start = findOptimalSnippetStart(positions);
         int end = Math.min(start + SNIPPET_LENGTH, text.length());
         String snippet = text.substring(start, end);
         if (start > 0) {
@@ -152,7 +156,7 @@ public class SearchingServiceImpl implements SearchingService {
         return end < text.length() ? snippet + "..." : snippet;
     }
 
-    private int findOptimalSnippetStart(List<Integer> positions, String text) {
+    private int findOptimalSnippetStart(List<Integer> positions) {
         Collections.sort(positions);
         int bestStart = 0;
         int maxDensity = 0;

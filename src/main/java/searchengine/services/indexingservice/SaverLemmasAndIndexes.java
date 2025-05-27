@@ -13,7 +13,7 @@ import java.util.Map;
 
 @Slf4j
 @RequiredArgsConstructor
-public class SaveLemmaAndIndex {
+public class SaverLemmasAndIndexes {
     private final LemmaModelRepository lemmaModelRepository;
     private final IndexModelRepository indexModelRepository;
     private final PageModel pageModel;
@@ -44,14 +44,13 @@ public class SaveLemmaAndIndex {
     private void collectLemmasAndIndexes(String content) {
         LemmaFinder lemmaFinder = new LemmaFinder();
         HashMap<String, Integer> lemmas = lemmaFinder.collectLemmas(content);
-
         synchronized (lemmaModelRepository) {
-        for (Map.Entry<String, Integer> lemma : lemmas.entrySet()) {
-                if (lemmaModelRepository.existsBySiteAndLemma(pageModel.getSite(), lemma.getKey())) {
+            for (Map.Entry<String, Integer> lemma : lemmas.entrySet()) {
+                LemmaModel lemmaModelFromDb = lemmaModelRepository.findBySiteAndLemma(pageModel.getSite(), lemma.getKey());
+                if (lemmaModelFromDb != null) {
                     log.debug("Lemma {} already exists for site {}", lemma.getKey(), pageModel.getSite().getName());
-                    LemmaModel lemmaModelFromDb = lemmaModelRepository.findBySiteAndLemma(pageModel.getSite(), lemma.getKey());
-                    if (indexModelRepository.existsByLemmaAndPage(lemmaModelFromDb, pageModel)) {
-                        IndexModel indexModelFromDb = indexModelRepository.findByLemmaAndPage(lemmaModelFromDb, pageModel);
+                    IndexModel indexModelFromDb = indexModelRepository.findByLemmaAndPage(lemmaModelFromDb, pageModel);
+                    if (indexModelFromDb != null) {
                         indexModelFromDb.setRankScore(indexModelFromDb.getRankScore() + lemma.getValue());
                         indexModelRepository.save(indexModelFromDb);
                     } else {
@@ -64,9 +63,9 @@ public class SaveLemmaAndIndex {
                     buildAndSaveIndex(pageModel, lemma, lemmaModel);
                 }
             }
-        lemmas.clear();
-        lemmaModelRepository.flush();
-        indexModelRepository.flush();
+            lemmas.clear();
+            lemmaModelRepository.flush();
+            indexModelRepository.flush();
         }
     }
 

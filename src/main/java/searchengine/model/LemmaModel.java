@@ -3,7 +3,6 @@ import jakarta.persistence.*;
 import lombok.*;
 import java.util.Set;
 
-
 @Builder
 @Getter
 @Setter
@@ -23,7 +22,6 @@ public class LemmaModel {
     private String lemma;
     @Column(name = "frequency", nullable = false, columnDefinition = "INT")
     private Integer frequency;
-
     @OneToMany(mappedBy = "lemma", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<IndexModel> indexes;
 }

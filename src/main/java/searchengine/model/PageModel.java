@@ -24,7 +24,6 @@ public class PageModel {
     private Integer code;
     @Column(name = "content", nullable = false, columnDefinition = "MEDIUMTEXT")
     private String content;
-
     @OneToMany(mappedBy = "page", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     private Set<IndexModel> indexes;
 }

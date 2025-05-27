@@ -9,5 +9,5 @@ public class SearchingResponse {
     private boolean result;
     private int count;
     private String error;
-    private List<SearchingData> searchingData;
+    private List<SearchingData> data;
 }
