@@ -39,31 +39,7 @@ public class SaverPagesPool extends RecursiveAction {
                 return;
             }
         }
-        try {
-            Document document = Jsoup.connect(url)
-                    .userAgent(userAgent)
-                    .referrer(referrer)
-                    .timeout(6000)
-                    .get();
-            PageModel pageModel = createAndSavePageModel(document, relativePath);
-            siteModel.setStatusTime(LocalDateTime.now());
-            siteModelRepository.saveAndFlush(siteModel);
-            if (pageModel != null && pageModel.getSite().getSiteStatus() == SiteStatus.INDEXING) {
-                new SaverLemmasAndIndexes(lemmaModelRepository, indexModelRepository, pageModel).saveLemmaAndIndex();
-                processPaginatedContent(document, url);
-                processPageLinks(document);
-            }
-        } catch (SocketTimeoutException socketTimeoutException) {
-            log.warn("Timeout accessing {}: {}", url, socketTimeoutException.getMessage());
-        } catch (HttpStatusException httpStatusException) {
-            log.warn("Url fetching error for {}: {}", url, httpStatusException.getMessage());
-        } catch (Exception exception) {
-            log.warn("Page {} processing failed: {}", url, exception.getMessage());
-            changeSiteStatusToFailedByError(siteModelRepository, exception.getMessage());
-        } finally {
-            siteModelRepository.flush();
-            pageModelRepository.flush();
-        }
+        getConnectionAndSaveDataIntoDb(relativePath);
     }
 
     private void processPageLinks(Document document) {
@@ -71,13 +47,11 @@ public class SaverPagesPool extends RecursiveAction {
         Set<String> visitedUrls = new HashSet<>();
         for (Element element : document.select("a[href]")) {
             String childUrl = element.absUrl("href");
-
             if (interruptionChecker.isInterrupted()) {
                 changeSiteStatusToFailedByStop(siteModelRepository);
                 log.info("Interrupted processing site: {}", siteModel.getName());
                 return;
             }
-
             if (isValidUrl(childUrl) && !visitedUrls.contains(childUrl)) {
                 visitedUrls.add(childUrl);
                 SaverPagesPool task = new SaverPagesPool(
@@ -141,20 +115,7 @@ public class SaverPagesPool extends RecursiveAction {
                 if(!isValidUrl(pageUrl) || pageModelRepository.existsBySiteAndPath(siteModel, relativePath)) {
                     return;
                 }
-                log.info("Processing paginated page {})", pageUrl);
-                try {
-                        Document pageDocument = Jsoup.connect(pageUrl)
-                                .userAgent(userAgent)
-                                .referrer(referrer)
-                                .timeout(6000)
-                                .get();
-
-                        PageModel pageModel = createAndSavePageModel(pageDocument, relativePath);
-                        new SaverLemmasAndIndexes(lemmaModelRepository, indexModelRepository, pageModel).saveLemmaAndIndex();
-                        processPageLinks(pageDocument);
-                } catch (Exception e) {
-                    log.error("Page {} processing failed: {}", pageUrl, e.getMessage());
-                }
+                getConnectionAndSaveDataIntoDb(relativePath);
             });
         }
     }
@@ -164,5 +125,33 @@ public class SaverPagesPool extends RecursiveAction {
             return siteModel.getUrl().length() == pageUrl.length() ? "/" : pageUrl.substring(siteModel.getUrl().length() - 1);
         }
         return null;
+    }
+
+    private void getConnectionAndSaveDataIntoDb(String relativePath) {
+        try {
+            Document document = Jsoup.connect(url)
+                    .userAgent(userAgent)
+                    .referrer(referrer)
+                    .timeout(6000)
+                    .get();
+            PageModel pageModel = createAndSavePageModel(document, relativePath);
+            siteModel.setStatusTime(LocalDateTime.now());
+            siteModelRepository.saveAndFlush(siteModel);
+            if (pageModel != null && pageModel.getSite().getSiteStatus() == SiteStatus.INDEXING) {
+                new SaverLemmasAndIndexes(lemmaModelRepository, indexModelRepository, pageModel).saveLemmaAndIndex();
+                processPaginatedContent(document, url);
+                processPageLinks(document);
+            }
+        } catch (SocketTimeoutException socketTimeoutException) {
+            log.warn("Timeout accessing {}: {}", url, socketTimeoutException.getMessage());
+        } catch (HttpStatusException httpStatusException) {
+            log.warn("Url fetching error for {}: {}", url, httpStatusException.getMessage());
+        } catch (Exception exception) {
+            log.warn("Page {} processing failed: {}", url, exception.getMessage());
+            changeSiteStatusToFailedByError(siteModelRepository, exception.getMessage());
+        } finally {
+            siteModelRepository.flush();
+            pageModelRepository.flush();
+        }
     }
 }
